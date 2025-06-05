@@ -8,15 +8,11 @@ import os
 import sys
 import time
 import json
-import psutil
-import smtplib
 import logging
 import requests
 import subprocess
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
-from email.mime.text import MimeText
-from email.mime.multipart import MimeMultipart
 
 # Add the application directory to Python path
 sys.path.insert(0, '/opt/property-monitor')
@@ -24,6 +20,23 @@ sys.path.insert(0, '/opt/property-monitor')
 from config import get_config
 from database import DatabaseManager
 
+# Email imports - optional
+try:
+    import smtplib
+    from email.mime.text import MimeText
+    from email.mime.multipart import MimeMultipart
+    EMAIL_AVAILABLE = True
+except ImportError:
+    EMAIL_AVAILABLE = False
+    print("Email functionality not available - continuing without email support")
+
+# psutil import - optional  
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+    print("psutil not available - some metrics will be unavailable")
 
 class SystemMonitor:
     """System monitoring and alerting"""
@@ -145,6 +158,15 @@ class SystemMonitor:
 
     def _check_performance(self) -> Dict[str, Any]:
         """Check system performance metrics"""
+        if not PSUTIL_AVAILABLE:
+           return {
+              'cpu_percent': 0,
+              'memory': {'total_gb': 0, 'available_gb': 0, 'percent_used': 0},
+              'disk': {'app_disk_percent': 0, 'data_disk_percent': 0, 'app_free_gb': 0, 'data_free_gb': 0},
+              'process': {},
+              'error': 'psutil not available'
+           }
+
         try:
             # CPU usage
             cpu_percent = psutil.cpu_percent(interval=1)
