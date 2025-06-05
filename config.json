@@ -1,0 +1,77 @@
+{
+  "environment": "production",
+  "database": {
+    "path": "/var/lib/property_monitor/properties.db",
+    "backup_path": "/var/lib/property_monitor/backups",
+    "backup_retention_days": 30
+  },
+  "logging": {
+    "level": "INFO",
+    "file_path": "/var/log/property_monitor",
+    "max_file_size": "10MB",
+    "backup_count": 5,
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  },
+  "scraping_api": {
+    "base_url": "https://elicytacje.komornik.pl",
+    "api_endpoint": "/services/item-back/rest/item/search",
+    "timeout": 30,
+    "retry_attempts": 3,
+    "retry_delay": 5.0,
+    "user_agent": "PropertyMonitorBot/1.0",
+    "max_connections": 10,
+    "keep_alive": true,
+    "requests_per_minute": 30,
+    "burst_requests": 5
+  },
+  "geocoding_api": {
+    "service": "nominatim",
+    "nominatim_url": "https://nominatim.openstreetmap.org",
+    "timeout": 10,
+    "retry_attempts": 2,
+    "retry_delay": 1.0,
+    "user_agent": "PropertyMonitor/1.0",
+    "restrict_to_poland": true,
+    "country_codes": ["PL"],
+    "language": "pl",
+    "enable_fuzzy_search": true,
+    "similarity_threshold": 0.8
+  },
+  "web_server": {
+    "host": "0.0.0.0",
+    "port": 80,
+    "admin_port": 8080,
+    "debug": false,
+    "secret_key": "d3a79f148fbfd6078de7a1d112d27e9a9d8c5c387cba4069",
+    "max_content_length": 16777216,
+    "session_timeout": 3600,
+    "threaded": true,
+    "processes": 1,
+    "server_name": "192.168.1.90",
+    "server_protocol": "http",
+    "admin_subdomain": null
+  },
+  "service": {
+    "scraping_time": "06:00",
+    "geocoding_interval_minutes": 60,
+    "cleanup_time": "02:00",
+    "health_check_interval_minutes": 5,
+    "enable_auto_restart": true,
+    "max_restart_attempts": 3,
+    "restart_delay_seconds": 30,
+    "memory_limit_mb": 1024,
+    "cpu_threshold": 80.0,
+    "disk_threshold": 85.0
+  },
+  "monitoring": {
+    "enable_health_monitoring": true,
+    "health_check_url": "http://192.168.1.90/api/health",
+    "enable_email_alerts": false,
+    "email_smtp_server": "",
+    "email_smtp_port": 587,
+    "email_username": "",
+    "email_password": "",
+    "email_recipients": [],
+    "metrics_retention_days": 30
+  }
+}
