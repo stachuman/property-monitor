@@ -16,6 +16,8 @@ from database import DatabaseManager
 from models import ScrapingConfig, GeocodingConfig, ApiResponse
 from property_scraper_service import ScrapingService
 from geocoding_service import GeocodingService
+from datetime import datetime, timedelta
+import schedule
 
 logger = logging.getLogger(__name__)
 
@@ -69,17 +71,170 @@ class AdminService:
         try:
             health = self.db.get_system_health()
             category_stats = self.db.get_category_stats()
-            scraping_status = self.scraping_service.get_scraping_status()
-            geocoding_status = self.geocoding_service.get_geocoding_status()
+		
+            # POPRAWIONE: Sprawdź rzeczywisty status usług
+            scraping_status = self._get_real_scraping_status()
+            geocoding_status = self._get_real_geocoding_status()
 
             return render_template('admin_dashboard.html',
-                                   health=health,
-                                   category_stats=category_stats,
-                                   scraping_status=scraping_status,
-                                   geocoding_status=geocoding_status)
+                health=health,
+                category_stats=category_stats,
+                scraping_status=scraping_status,
+                geocoding_status=geocoding_status)
         except Exception as e:
             logger.error(f"Dashboard error: {e}")
             return f"Dashboard error: {e}", 500
+
+    def _get_real_scraping_status(self):
+      """Get real scraping service status by checking database and scheduler"""
+      try:
+        # Sprawdź status z bazy danych
+        db_status = self.db.get_service_status('scraping')
+        
+        # Sprawdź czy są zaplanowane joby
+        import schedule
+        scraping_jobs = [job for job in schedule.get_jobs() if 'scraping' in str(job)]
+        
+        # Sprawdź ostatnią aktywność
+        configs = self.db.get_scraping_configs()
+        recent_activity = any(
+           config.last_run and 
+            (datetime.now() - config.last_run).total_seconds() < 3600  # ostatnia godzina
+            for config in configs
+        )
+        
+        # Określ czy usługa działa
+        service_running = bool(db_status or scraping_jobs or recent_activity)
+        
+        # Zwróć status w formacie kompatybilnym z template
+        status = {
+            "service_running": service_running,
+            "scheduler_active": len(scraping_jobs) > 0,
+            "scheduled_jobs_count": len(scraping_jobs),
+            "categories": [
+                {
+                    "category": config.category,
+                    "enabled": config.enabled,
+                    "max_pages": config.max_pages,
+                    "last_run": config.last_run.isoformat() if config.last_run else None
+                }
+                for config in configs
+            ],
+            "next_scheduled_scrape": self._get_next_scheduled_time(),
+            "daily_scrape_time": self.config.service.scraping_time
+        }
+        
+        return status
+        
+      except Exception as e:
+        logger.error(f"Error getting scraping status: {e}")
+        return {
+            "service_running": False,
+            "scheduler_active": False,
+            "scheduled_jobs_count": 0,
+            "categories": [],
+            "next_scheduled_scrape": None,
+            "daily_scrape_time": "Unknown"
+        }
+
+    def _get_real_geocoding_status(self):
+      """Get real geocoding service status by checking database and activity"""
+      try:
+        # Sprawdź status z bazy danych
+        db_status = self.db.get_service_status('geocoding')
+        
+        # Sprawdź ostatnią aktywność geokodowania
+        health = self.db.get_system_health()
+        recent_geocoding = (
+            health.last_geocoding and 
+            (datetime.now() - health.last_geocoding).total_seconds() < 7200  # ostatnie 2 godziny
+        )
+        
+        # Sprawdź czy są zaplanowane joby
+        import schedule
+        geocoding_jobs = [job for job in schedule.get_jobs() if 'geocoding' in str(job)]
+        
+        # Określ czy usługa działa
+        service_running = bool(db_status or recent_geocoding or geocoding_jobs)
+        
+        # Pobierz konfigurację
+        geocoding_config = self.db.get_geocoding_config()
+        
+        status = {
+            "service_running": service_running,
+            "enabled": geocoding_config.enabled,
+            "batch_size": geocoding_config.batch_size,
+            "delay_seconds": geocoding_config.delay_seconds,
+            "max_attempts": geocoding_config.max_attempts,
+            "retry_failed_after_hours": geocoding_config.retry_failed_after_hours,
+            "total_properties": health.total_properties,
+            "geocoded_properties": health.geocoded_properties,
+            "failed_geocoding": health.failed_geocoding,
+            "pending_geocoding": health.pending_geocoding,
+            "geocoding_percentage": health.geocoding_percentage,
+            "last_geocoding": health.last_geocoding.isoformat() if health.last_geocoding else None,
+            "next_scheduled_run": self._get_next_geocoding_time()
+        }
+        
+        return status
+        
+      except Exception as e:
+        logger.error(f"Error getting geocoding status: {e}")
+        return {
+            "service_running": False,
+            "enabled": False,
+            "batch_size": 50,
+            "delay_seconds": 1.1,
+            "max_attempts": 3,
+            "total_properties": 0,
+            "geocoded_properties": 0,
+            "failed_geocoding": 0,
+            "pending_geocoding": 0,
+            "geocoding_percentage": 0,
+            "last_geocoding": None,
+            "next_scheduled_run": None
+        }
+
+    def _get_next_scheduled_time(self):
+      """Get next scheduled scraping time"""
+      try:
+        scrape_time = self.config.service.scraping_time  # e.g., "06:00"
+        if not scrape_time:
+            return None
+            
+        # Parse the time
+        hour, minute = map(int, scrape_time.split(':'))
+        
+        # Get current time
+        now = datetime.now()
+        
+        # Create next scheduled time for today
+        next_scrape = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        
+        # If the time has already passed today, schedule for tomorrow
+        if next_scrape <= now:
+            next_scrape += timedelta(days=1)
+            
+        return next_scrape.isoformat()
+        
+      except Exception as e:
+        logger.error(f"Failed to calculate next scrape time: {e}")
+        return None
+
+    def _get_next_geocoding_time(self):
+      """Get next scheduled geocoding time"""
+      try:
+        interval = self.config.service.geocoding_interval_minutes
+        if interval <= 0:
+            return None
+            
+        # Oszacuj następny czas na podstawie interwału
+        next_run = datetime.now() + timedelta(minutes=interval)
+        return next_run.isoformat()
+        
+      except Exception as e:
+        logger.error(f"Failed to calculate next geocoding time: {e}")
+        return None
 
     def scraping_control(self):
         """Scraping control page"""
