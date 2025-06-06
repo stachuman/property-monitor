@@ -1,7 +1,6 @@
 # 🏠 Monitor Licytacji Nieruchomości
 
-
-![Alt text](property-monitor/blob/main/Capture_01.PNG "Monitor aukcji")
+![Capture_01](https://github.com/user-attachments/assets/c8b383e4-1d06-4d90-b80b-7ef174715444)
 
 System monitorowania aukcji komorniczych nieruchomości w Polsce z interaktywną mapą i zaawansowanymi funkcjami zarządzania.
 
