@@ -315,7 +315,7 @@ Jeśli napotkasz problemy:
 
 ### Wersje
 
-- **v1.0**: Podstawowa funkcjonalność (obecna)
+- **v0.5**: Podstawowa funkcjonalność (obecna)
 
 ---
 
