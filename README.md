@@ -7,6 +7,7 @@ System monitorowania aukcji komorniczych nieruchomości w Polsce z interaktywną
 ## 📋 Opis Projektu
 
 Monitor Licytacji Nieruchomości to zaawansowany system do automatycznego pozyskiwania, przetwarzania i wizualizacji danych o aukcjach komorniczych nieruchomości w Polsce. System pobiera dane z portalu elicytacje.komornik.pl, geokoduje lokalizacje nieruchomości i prezentuje je na interaktywnej mapie.
+System funkcjonuje jako nakładka do https://elicytacje.komornik.pl
 
 ### ✨ Główne Funkcje
 
